@@ -67,8 +67,8 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <ProjectReference Include="..\..\..\UniCS.TM\ModelMID\ModelMID.csproj" />
-	  <ProjectReference Include="..\..\..\UniCS.TM\Utils\Utils.csproj" />
+	  <ProjectReference Include="..\..\..\..\UniCS.TM\ModelMID\ModelMID.csproj" />
+	  <ProjectReference Include="..\..\..\..\UniCS.TM\Utils\Utils.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>

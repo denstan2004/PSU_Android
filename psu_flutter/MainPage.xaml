@@ -1,0 +1,88 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="psu_flutter.MainPage"
+              Title="">
+    
+    <CollectionView   ItemsSource="{Binding Orders}" ItemsLayout="HorizontalList">
+        <CollectionView.ItemTemplate>
+            <DataTemplate>
+                <Border  Stroke="Black"
+         StrokeThickness="1"
+         StrokeShape="RoundRectangle 10,10,10,10"  Margin="10" BackgroundColor="LightGray">
+                    <Grid   RowDefinitions="2*,3*,16*" ColumnDefinitions="600" >
+                        <Grid  Grid.Row="0" Grid.Column="1" ColumnDefinitions="*,*,*">
+                            <Label Grid.Column="1"   HorizontalOptions="Center" VerticalOptions="Center" FontSize="52" FontFamily="Josefin Sans" FontAttributes="Bold"    Text="{Binding Id}" />
+                            <Button Text="×"
+        TextColor="White"
+        Grid.Column="2"
+        BackgroundColor="DimGray"
+        WidthRequest="150"
+                                    FontSize="28" Clicked="Button_Clicked_1" CommandParameter="{Binding}"
+                                    IsVisible="{Binding IsButtonVisible}"
+        HeightRequest="60"
+        CornerRadius="10"
+        HorizontalOptions="End"
+        VerticalOptions="End">
+                                <Button.Shadow>
+                                    <Shadow Brush="Gray" Opacity="0.8" Radius="10" />
+                                </Button.Shadow>
+                                <Button.Triggers>
+                                    <!-- Тригер для натискання -->
+                                    <Trigger TargetType="Button" Property="IsPressed" Value="True">
+                                        <Setter Property="TranslationY" Value="3" />
+                                        <Setter Property="Shadow.Opacity" Value="0.4" />
+                                    </Trigger>
+                                    <!-- Тригер для звичайного стану -->
+                                    <Trigger TargetType="Button" Property="IsPressed" Value="False">
+                                        <Setter Property="TranslationY" Value="0" />
+                                        <Setter Property="Shadow.Opacity" Value="0.8" />
+                                    </Trigger>
+                                </Button.Triggers>
+                            </Button>
+
+                        </Grid>
+                        <Grid Grid.Row="1" >
+                            <Button  Clicked="Button_Clicked"  CommandParameter="{Binding}" Text="{Binding StatusText}"  Background="#3c3d40"  CornerRadius="50" FontSize="52" FontFamily="Josefin Sans"  Margin="5,10,5,0">
+                                <Button.Shadow>
+                                    <Shadow Brush="Gray" Opacity="0.8" Radius="10" />
+                                </Button.Shadow>
+                                <Button.Triggers>
+                                    <!-- Тригер для натискання -->
+                                    <Trigger TargetType="Button" Property="IsPressed" Value="True">
+                                        <Setter Property="TranslationY" Value="3" />
+                                        <Setter Property="Shadow.Opacity" Value="0.4" />
+                                    </Trigger>
+                                    <!-- Тригер для звичайного стану -->
+                                    <Trigger TargetType="Button" Property="IsPressed" Value="False">
+                                        <Setter Property="TranslationY" Value="0" />
+                                        <Setter Property="Shadow.Opacity" Value="0.8" />
+                                    </Trigger>
+                                </Button.Triggers>
+                            </Button>
+                        </Grid>
+                        <CollectionView   Grid.Row="2" Grid.Column="1" ItemsSource="{Binding Wares}">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Margin="0,20,10,0"  StrokeThickness="2" Stroke="#b5aeae">
+                                        <Grid Background="#c2c2c2" Padding="10" ColumnDefinitions="*,*">
+                                            <Label FontSize="24" TextColor="Black" FontFamily="Josefin Sans" Grid.Column="0" VerticalOptions="Center" HorizontalOptions="Start" Text="{Binding NameWares}" />
+                                            <CollectionView Grid.Column="1" ItemsSource="{Binding ReceiptLinks}">
+                                                <CollectionView.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Label FontFamily="Josefin Sans" FontSize="22"   Text="{Binding Name}"></Label>
+                                                    </DataTemplate>
+                                                </CollectionView.ItemTemplate>
+                                            </CollectionView>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                    </Grid>
+                </Border>
+            </DataTemplate>
+        </CollectionView.ItemTemplate>
+    </CollectionView>
+
+</ContentPage>

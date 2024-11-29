@@ -1,16 +1,15 @@
-﻿using Microsoft.Maui.Controls;
-using ModelMID;
+﻿using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using OrderTrack;
 using OrderTrack.Models;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using System.Timers;
+using System.Windows.Input;
 using Utils;
 
 
@@ -18,22 +17,132 @@ namespace psu_flutter
 {
     public partial class MainPage : ContentPage
     {
-        private readonly SocketClient _socketClient;
-        private System.Timers.Timer _timer;
-        public ObservableCollection<Order> Orders { get; set; }
         public MainPage()
         {
             InitializeComponent();
             NavigationPage.SetHasNavigationBar(this, false);
-            _socketClient = new SocketClient("192.168.88.248", OrderTrack.Global.PortAPI);
+            var config = LoadConfiguration();
+            var ipAddress = config.ip;
+            var port = config.port;
+            _socketClient = new SocketClient(ipAddress, port);
             Orders = new ObservableCollection<Order>();
             BindingContext = this; // Встановлюємо BindingContext
             _timer = new System.Timers.Timer(10000);
-            _timer.Elapsed += OnTimerElapsed;
             _timer.AutoReset = true;
+            _timer.Elapsed += OnTimerElapsed;
             _timer.Start();
         }
 
+        #region Fields
+
+        public string IP;
+        public bool MenuVisibility { get; set; }
+        public bool IsOrdersEmpty
+        {
+            get { return !Orders.Any(); }
+        }
+        private readonly SocketClient _socketClient;
+        private System.Timers.Timer _timer;
+        public ObservableCollection<Order> Orders { get; set; }
+        #endregion
+
+        #region appsettings Methods
+        public Config LoadConfiguration()
+        {
+            var filePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "appsettings.json");
+
+            if (File.Exists(filePath))
+            {
+                try
+                {
+                    // Зчитуємо вміст JSON-файлу
+                    var json = File.ReadAllText(filePath);
+
+                    // Парсимо JSON у JObject
+                    var jsonObj = JObject.Parse(json);
+
+                    // Дістаємо секцію "Socket"
+                    var socketSection = jsonObj["Socket"];
+
+                    if (socketSection != null)
+                    {
+                        // Створюємо об'єкт Config і заповнюємо його значеннями
+                        var config = new Config
+                        {
+                            ip = socketSection["IpAddress"]?.ToString(),
+                            port = socketSection["PortAPI"]?.ToObject<int>() ?? 0 // Перетворення в int
+                        };
+
+                        return config;
+                    }
+                    else
+                    {
+                        Console.WriteLine("Секція 'Socket' не знайдена в конфігурації.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Помилка при зчитуванні конфігурації: {ex.Message}");
+                }
+            }
+            else
+            {
+                Console.WriteLine("Файл конфігурації не знайдений.");
+            }
+
+            // Якщо файл не знайдений або помилка, повертаємо порожню конфігурацію
+            return new Config();
+        }
+
+
+        public void UpdateIpAddress(string newIp)
+        {
+            var filePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "appsettings.json");
+
+            if (File.Exists(filePath))
+            {
+                try
+                {
+                    // Зчитуємо існуючий JSON-файл
+                    var json = File.ReadAllText(filePath);
+
+                    // Парсимо JSON у JObject
+                    var jsonObj = JObject.Parse(json);
+
+                    // Оновлюємо секцію "Socket" з новим IP
+                    var socketSection = jsonObj["Socket"];
+                    if (socketSection != null)
+                    {
+                        socketSection["IpAddress"] = newIp;
+
+                        // Серіалізуємо об'єкт назад у JSON із відформатованим виглядом
+                        var updatedJson = jsonObj.ToString(Newtonsoft.Json.Formatting.Indented);
+
+                        // Записуємо оновлений JSON у файл
+                        File.WriteAllText(filePath, updatedJson);
+
+                        Console.WriteLine("IP-адресу успішно оновлено.");
+                    }
+                    else
+                    {
+                        Console.WriteLine("Секція 'Socket' не знайдена у файлі конфігурації.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Помилка при оновленні IP-адреси: {ex.Message}");
+                }
+            }
+            else
+            {
+                Console.WriteLine("Файл конфігурації не знайдений.");
+            }
+            LoadConfiguration();
+        }
+
+        #endregion
+
+        #region Timer
 
         private async void OnTimerElapsed(object sender, ElapsedEventArgs e)
         {
@@ -42,7 +151,6 @@ namespace psu_flutter
                 await SendGetAllOrdersRequest();
             });
         }
-
 
         private async Task SendGetAllOrdersRequest()
         {
@@ -78,9 +186,9 @@ namespace psu_flutter
                 // Десеріалізація виконується у фоновому потоці
                 var status = JsonConvert.DeserializeObject<Status<IEnumerable<Order>>>(response, settings);
 
-                // Оновлюємо ObservableCollection через проміжну колекцію
+                // Оновлюємо ObservableCollection через проміжну колекцію   
                 if (status?.Data != null)
-                {
+                { 
                     var ordersList = status.Data.ToList();
                     MainThread.BeginInvokeOnMainThread(() =>
                     {
@@ -90,11 +198,12 @@ namespace psu_flutter
                             Orders.Add(order); // Масове додавання
                         }
                     });
+                    OnPropertyChanged(nameof (IsOrdersEmpty));
                 }
             }
             catch (Exception ex)
             {
-               
+
             }
         }
 
@@ -111,7 +220,8 @@ namespace psu_flutter
                 _timer.Dispose();
             }
         }
-
+        #endregion 
+        #region UiPart
         private async void Button_Clicked(object sender, EventArgs e)
         {
             try
@@ -137,22 +247,22 @@ namespace psu_flutter
                             };
                     if (currentOrder.Status == eStatus.Waiting)
                     {
-                        currentOrder.Status = eStatus.Preparing;    
+                        currentOrder.Status = eStatus.Preparing;
                     }
-                    else if(currentOrder.Status == eStatus.Preparing)
+                    else if (currentOrder.Status == eStatus.Preparing)
                     {
                         currentOrder.Status = eStatus.Ready;
                     }
-                    OnPropertyChanged(nameof (Orders));
-                    UpdateModel updateModel = new UpdateModel(currentOrder.Status,currentOrder.Id);
+                    OnPropertyChanged(nameof(Orders));
+                    UpdateModel updateModel = new UpdateModel(currentOrder.Status, currentOrder.Id);
                     var command = new
                     {
                         Command = "ChangeOrderState",
                         Data = updateModel
                     };
 
-                    
-                    OnPropertyChanged(nameof (Orders));
+
+                    OnPropertyChanged(nameof(Orders));
                     string jsonRequest = JsonConvert.SerializeObject(command);
                     string response = await _socketClient.SendMessageAsync(jsonRequest);
                     Status<Order> order = JsonConvert.DeserializeObject<Status<Order>>(response, settings);
@@ -218,23 +328,51 @@ namespace psu_flutter
                 {
                     var search = Orders.FirstOrDefault(item => item.Id == currentOrder.Id);
                     if (search != null)
-                    { 
-                            search.Status = currentOrder.Status;
+                    {
+                        search.Status = currentOrder.Status;
                         OnPropertyChanged(nameof(search));
-                        
+
                     }
                     OnPropertyChanged(nameof(Orders));
                 }
 
             }
-            
+
 
         }
+        
+        private void Button_Clicked_2(object sender, EventArgs e)
+        {
+            MenuVisibility = !MenuVisibility;
+            OnPropertyChanged(nameof(MenuVisibility));
+        }
+        private void Button_Clicked_3(object sender, EventArgs e)
+        {
+            UpdateIpAddress(IP);
+            MenuVisibility = !MenuVisibility;
+            OnPropertyChanged(nameof(MenuVisibility));
+        }
+        private void OnEntryCompleted(object sender, EventArgs e)
+        {
+            if (sender is Entry entry)
+            {
+                string enteredText = entry.Text;
+                OnIpChange(enteredText); 
+            }
+        }
 
+        private void OnIpChange(string enteredText)
+        {
+            IP = enteredText; // Зберігаємо введений IP
+        }
+
+        #endregion
+
+        #region SocketPart
         public class SocketClient
         {
-            private readonly string _serverAddress;
-            private readonly int _port;
+            public string _serverAddress;
+            public int _port;
 
             public SocketClient(string serverAddress, int port)
             {
@@ -298,8 +436,18 @@ namespace psu_flutter
                 }
             }
         } // <-- Закриваюча дужка для SocketClient
-    } // <-- Закриваюча дужка для MainPage
 
+      
+    }
+    #endregion
+    public class Config
+    {
+        public int port { get; set; }
+        public string ip
+        {
+            get; set;
+        }
+    }
 
 }
 

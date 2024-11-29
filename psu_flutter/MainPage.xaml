@@ -3,8 +3,33 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="psu_flutter.MainPage"
               Title="">
-    
-    <CollectionView   ItemsSource="{Binding Orders}" ItemsLayout="HorizontalList">
+    <Grid RowDefinitions="*,10*">
+        <Button Grid.Row="0" BackgroundColor="Black" HeightRequest="40" WidthRequest="90" HorizontalOptions="End" VerticalOptions="Start" Text="options" Clicked="Button_Clicked_2"></Button>
+        <Label Grid.Row="1" FontSize="24" HorizontalOptions="Center" VerticalOptions="Center" IsVisible="{Binding IsOrdersEmpty}">Немає Замовленнь</Label>
+        
+            <Grid ColumnDefinitions="*,2*" RowDefinitions="*,*,*" IsVisible="{Binding MenuVisibility}" BackgroundColor="WhiteSmoke" Grid.Row="1"  ZIndex="2">
+            <Label Grid.Column="0"  Grid.Row="1" HorizontalOptions="End" FontSize="26" VerticalOptions="Center">Ip: </Label>
+            <Entry WidthRequest="400" FontSize="22" Grid.Row="1" Grid.Column="1" HorizontalOptions="Start" VerticalOptions="Center"   Completed="OnEntryCompleted"  ></Entry>
+            <Button Text="Прийняти" FontSize="28" Grid.Column="1" VerticalOptions="End" HorizontalOptions="End" Grid.Row="2" HeightRequest="100" WidthRequest="200"  TextColor="White"  BackgroundColor="DimGray" Clicked="Button_Clicked_3" >
+                <Button.Shadow>
+                    <Shadow Brush="Gray" Opacity="0.8" Radius="10" />
+                </Button.Shadow>
+                <Button.Triggers>
+                    <!-- Тригер для натискання -->
+                    <Trigger TargetType="Button" Property="IsPressed" Value="True">
+                        <Setter Property="TranslationY" Value="3" />
+                        <Setter Property="Shadow.Opacity" Value="0.4" />
+                    </Trigger>
+                    <!-- Тригер для звичайного стану -->
+                    <Trigger TargetType="Button" Property="IsPressed" Value="False">
+                        <Setter Property="TranslationY" Value="0" />
+                        <Setter Property="Shadow.Opacity" Value="0.8" />
+                    </Trigger>
+                </Button.Triggers>
+            </Button>
+            </Grid>
+        
+        <CollectionView Grid.Row="1"  ItemsSource="{Binding Orders}" ItemsLayout="HorizontalList">
         <CollectionView.ItemTemplate>
             <DataTemplate>
                 <Border  Stroke="Black"
@@ -14,16 +39,16 @@
                         <Grid  Grid.Row="0" Grid.Column="1" ColumnDefinitions="*,*,*">
                             <Label Grid.Column="1"   HorizontalOptions="Center" VerticalOptions="Center" FontSize="52" FontFamily="Josefin Sans" FontAttributes="Bold"    Text="{Binding Id}" />
                             <Button Text="×"
-        TextColor="White"
-        Grid.Column="2"
-        BackgroundColor="DimGray"
-        WidthRequest="150"
+                                    TextColor="White"
+                                    Grid.Column="2"
+                                    BackgroundColor="DimGray"
+                                    WidthRequest="150"
                                     FontSize="28" Clicked="Button_Clicked_1" CommandParameter="{Binding}"
                                     IsVisible="{Binding IsButtonVisible}"
-        HeightRequest="60"
-        CornerRadius="10"
-        HorizontalOptions="End"
-        VerticalOptions="End">
+                                    HeightRequest="60"
+                                    CornerRadius="10"
+                                    HorizontalOptions="End"
+                                    VerticalOptions="End">
                                 <Button.Shadow>
                                     <Shadow Brush="Gray" Opacity="0.8" Radius="10" />
                                 </Button.Shadow>
@@ -84,5 +109,5 @@
             </DataTemplate>
         </CollectionView.ItemTemplate>
     </CollectionView>
-
+    </Grid>
 </ContentPage>

@@ -3,14 +3,21 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="psu_flutter.MainPage"
               Title="">
-    <Grid RowDefinitions="*,10*">
-        <Button Grid.Row="0" BackgroundColor="Black" HeightRequest="40" WidthRequest="90" HorizontalOptions="End" VerticalOptions="Start" Text="options" Clicked="Button_Clicked_2"></Button>
+    <Grid RowDefinitions="*,15*">
+        <Button Grid.Row="0" BackgroundColor="Black" HeightRequest="40"  WidthRequest="90" HorizontalOptions="End" VerticalOptions="Start" Text="options" Clicked="Button_Clicked_2"></Button>
         <Label Grid.Row="1" FontSize="24" HorizontalOptions="Center" VerticalOptions="Center" IsVisible="{Binding IsOrdersEmpty}">Немає Замовленнь</Label>
-        
-            <Grid ColumnDefinitions="*,2*" RowDefinitions="*,*,*" IsVisible="{Binding MenuVisibility}" BackgroundColor="WhiteSmoke" Grid.Row="1"  ZIndex="2">
-            <Label Grid.Column="0"  Grid.Row="1" HorizontalOptions="End" FontSize="26" VerticalOptions="Center">Ip: </Label>
-            <Entry WidthRequest="400" FontSize="22" Grid.Row="1" Grid.Column="1" HorizontalOptions="Start" VerticalOptions="Center"   Completed="OnEntryCompleted"  ></Entry>
-            <Button Text="Прийняти" FontSize="28" Grid.Column="1" VerticalOptions="End" HorizontalOptions="End" Grid.Row="2" HeightRequest="100" WidthRequest="200"  TextColor="White"  BackgroundColor="DimGray" Clicked="Button_Clicked_3" >
+
+        <Grid ColumnDefinitions="*,2*" RowDefinitions="*,*,*,*" IsVisible="{Binding MenuVisibility}" BackgroundColor="WhiteSmoke" Grid.Row="1" ZIndex="2">
+            <!-- Поле для вводу IP -->
+            <Label Grid.Column="0" Grid.Row="1" HorizontalOptions="End" FontSize="26" VerticalOptions="Center">Ip:</Label>
+            <Entry WidthRequest="400" Text="{Binding IP}" FontSize="22" Grid.Row="1" Grid.Column="1" HorizontalOptions="Start" VerticalOptions="Center" Completed="OnEntryCompleted"></Entry>
+
+            <!-- Поле для вводу порту -->
+            <Label Grid.Column="0" Grid.Row="2" HorizontalOptions="End" FontSize="26" VerticalOptions="Center">Port:</Label>
+            <Entry WidthRequest="400" FontSize="22" Text="{Binding Port}" Grid.Row="2" Grid.Column="1" HorizontalOptions="Start" VerticalOptions="Center" Completed="OnEntryCompleted1" Keyboard="Numeric"></Entry>
+
+            <!-- Кнопка Прийняти -->
+            <Button Text="Прийняти" FontSize="28" Grid.Column="1" VerticalOptions="End" HorizontalOptions="End" Grid.Row="3" HeightRequest="100" WidthRequest="200" TextColor="White" BackgroundColor="DimGray" Clicked="Button_Clicked_3">
                 <Button.Shadow>
                     <Shadow Brush="Gray" Opacity="0.8" Radius="10" />
                 </Button.Shadow>
@@ -27,9 +34,9 @@
                     </Trigger>
                 </Button.Triggers>
             </Button>
-            </Grid>
-        
-        <CollectionView Grid.Row="1"  ItemsSource="{Binding Orders}" ItemsLayout="HorizontalList">
+        </Grid>
+
+        <CollectionView  Grid.Row="1"  ItemsSource="{Binding Orders}" ItemsLayout="HorizontalList">
         <CollectionView.ItemTemplate>
             <DataTemplate>
                 <Border  Stroke="Black"
@@ -68,7 +75,7 @@
 
                         </Grid>
                         <Grid Grid.Row="1" >
-                            <Button  Clicked="Button_Clicked"  CommandParameter="{Binding}" Text="{Binding StatusText}"  Background="#3c3d40"  CornerRadius="50" FontSize="52" FontFamily="Josefin Sans"  Margin="5,10,5,0">
+                                <Button  Clicked="Button_Clicked"  CommandParameter="{Binding}" Text="{Binding StatusText}"   Padding="5"   Background="#3c3d40"  CornerRadius="50" VerticalOptions="Center" FontSize="42" FontFamily="Josefin Sans"  Margin="5,10,5,0">
                                 <Button.Shadow>
                                     <Shadow Brush="Gray" Opacity="0.8" Radius="10" />
                                 </Button.Shadow>

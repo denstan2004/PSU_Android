@@ -11,6 +11,6 @@
     <ShellContent
           Title=""
     ContentTemplate="{DataTemplate local:MainPage}"
-    Shell.NavBarIsVisible="False" />
+    Shell.NavBarIsVisible="False" Shell.TabBarIsVisible="False"/>
 
 </Shell>

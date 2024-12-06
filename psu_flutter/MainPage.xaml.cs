@@ -21,13 +21,21 @@ namespace psu_flutter
         {
             InitializeComponent();
             NavigationPage.SetHasNavigationBar(this, false);
+            EnsureAppSettingsFileExists();
+
             var config = LoadConfiguration();
             var ipAddress = config.ip;
             var port = config.port;
+
             _socketClient = new SocketClient(ipAddress, port);
+            _socketClient.OnMessageReceived += HandleServerMessage; // Підписуємося на подію
+            _ = _socketClient.ConnectAsync(); // Асинхронне підключення
+
             Orders = new ObservableCollection<Order>();
             BindingContext = this; // Встановлюємо BindingContext
-            _timer = new System.Timers.Timer(10000);
+
+
+            _timer = new System.Timers.Timer(45000);
             _timer.AutoReset = true;
             _timer.Elapsed += OnTimerElapsed;
             _timer.Start();
@@ -36,17 +44,50 @@ namespace psu_flutter
         #region Fields
 
         public string IP;
+        public string Port;
         public bool MenuVisibility { get; set; }
         public bool IsOrdersEmpty
         {
             get { return !Orders.Any(); }
         }
-        private readonly SocketClient _socketClient;
+        private  SocketClient _socketClient;
         private System.Timers.Timer _timer;
         public ObservableCollection<Order> Orders { get; set; }
         #endregion
 
         #region appsettings Methods
+        private void EnsureAppSettingsFileExists()
+        {
+            var filePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "appsettings.json");
+
+            if (!File.Exists(filePath))
+            {
+                try
+                {
+                    // Стандартний JSON для файлу налаштувань
+                    var defaultConfig = new
+                    {
+                        Socket = new
+                        {
+                            IpAddress = "192.168.88.248", // Стандартна IP-адреса
+                            PortAPI = 8080          // Стандартний порт
+                        }
+                    };
+
+                    // Серіалізуємо у формат JSON із форматуванням
+                    var json = Newtonsoft.Json.JsonConvert.SerializeObject(defaultConfig, Formatting.Indented);
+
+                    // Записуємо JSON у файл
+                    File.WriteAllText(filePath, json);
+
+                    Console.WriteLine($"Файл налаштувань створено за замовчуванням: {filePath}");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Помилка створення файлу налаштувань: {ex.Message}");
+                }
+            }
+        }
         public Config LoadConfiguration()
         {
             var filePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "appsettings.json");
@@ -95,7 +136,7 @@ namespace psu_flutter
         }
 
 
-        public void UpdateIpAddress(string newIp)
+        public void UpdateIpAddress(string newIp ,string newPort)
         {
             var filePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "appsettings.json");
 
@@ -113,6 +154,7 @@ namespace psu_flutter
                     var socketSection = jsonObj["Socket"];
                     if (socketSection != null)
                     {
+                        socketSection["PortAPI"] =newPort;
                         socketSection["IpAddress"] = newIp;
 
                         // Серіалізуємо об'єкт назад у JSON із відформатованим виглядом
@@ -120,7 +162,7 @@ namespace psu_flutter
 
                         // Записуємо оновлений JSON у файл
                         File.WriteAllText(filePath, updatedJson);
-
+                        _socketClient = new SocketClient(newIp, Int32.Parse(newPort));
                         Console.WriteLine("IP-адресу успішно оновлено.");
                     }
                     else
@@ -143,7 +185,10 @@ namespace psu_flutter
         #endregion
 
         #region Timer
-
+        private void HandleServerMessage(string message)
+        {
+            SendGetAllOrdersRequest();
+        }
         private async void OnTimerElapsed(object sender, ElapsedEventArgs e)
         {
             await MainThread.InvokeOnMainThreadAsync(async () =>
@@ -211,6 +256,8 @@ namespace psu_flutter
 
         protected override void OnDisappearing()
         {
+            _socketClient.Disconnect();
+
             base.OnDisappearing();
 
             // Зупиняємо таймер, коли сторінка закривається
@@ -221,6 +268,7 @@ namespace psu_flutter
             }
         }
         #endregion 
+
         #region UiPart
         private async void Button_Clicked(object sender, EventArgs e)
         {
@@ -269,19 +317,20 @@ namespace psu_flutter
 
                     if (order.State == 0)
                     {
-                        var search = Orders.FirstOrDefault(item => item.Id == currentOrder.Id);
-                        if (search != null)
-                        {
-                            if (currentOrder.Status == eStatus.Ready)
-                            {
-                                Orders.Remove(search);
-                            }
-                            else
-                            {
-                                search.Status = currentOrder.Status;
-                            }
-                        }
-                        OnPropertyChanged(nameof(Orders));
+                        SendGetAllOrdersRequest();
+                        /*  var search = Orders.FirstOrDefault(item => item.Id == currentOrder.Id);
+                          if (search != null)
+                          {
+                              if (currentOrder.Status == eStatus.Ready)
+                              {
+                                  Orders.Remove(search);
+                              }
+                              else
+                              {
+                                  search.Status = currentOrder.Status;
+                              }
+                          }
+                          OnPropertyChanged(nameof(Orders));*/
                     }
 
                 }
@@ -326,14 +375,16 @@ namespace psu_flutter
 
                 if (order.State == 0)
                 {
-                    var search = Orders.FirstOrDefault(item => item.Id == currentOrder.Id);
+                    SendGetAllOrdersRequest();
+
+                  /*  var search = Orders.FirstOrDefault(item => item.Id == currentOrder.Id);
                     if (search != null)
                     {
                         search.Status = currentOrder.Status;
                         OnPropertyChanged(nameof(search));
 
                     }
-                    OnPropertyChanged(nameof(Orders));
+                    OnPropertyChanged(nameof(Orders));*/
                 }
 
             }
@@ -348,7 +399,7 @@ namespace psu_flutter
         }
         private void Button_Clicked_3(object sender, EventArgs e)
         {
-            UpdateIpAddress(IP);
+            UpdateIpAddress(IP,Port);
             MenuVisibility = !MenuVisibility;
             OnPropertyChanged(nameof(MenuVisibility));
         }
@@ -360,24 +411,55 @@ namespace psu_flutter
                 OnIpChange(enteredText); 
             }
         }
+        private void OnEntryCompleted1(object sender, EventArgs e)
+        {
+            if (sender is Entry entry)
+            {
+                string enteredText = entry.Text;
+                OnPortChange(enteredText);
+            }
+        }
 
         private void OnIpChange(string enteredText)
         {
             IP = enteredText; // Зберігаємо введений IP
         }
+        private void OnPortChange(string enteredText)
+        {
+            Port = enteredText; // Зберігаємо введений IP
+        }
+
 
         #endregion
 
         #region SocketPart
         public class SocketClient
         {
-            public string _serverAddress;
-            public int _port;
+            private string _serverAddress;
+            private int _port;
+            private TcpClient _client;
+            private CancellationTokenSource _cancellationTokenSource;
+            public event Action<string> OnMessageReceived; // Подія для обробки отриманих повідомлень
 
             public SocketClient(string serverAddress, int port)
             {
                 _serverAddress = serverAddress;
                 _port = port;
+                _cancellationTokenSource = new CancellationTokenSource();
+            }
+            public async Task ConnectAsync()
+            {
+                try
+                {
+                    _client = new TcpClient();
+                    await _client.ConnectAsync(_serverAddress, _port);
+                    Console.WriteLine("Клієнт підключений до сервера.");
+                    _ = ListenForMessagesAsync(_cancellationTokenSource.Token); // Запускаємо слухання
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Помилка підключення до сервера: {ex.Message}");
+                }
             }
 
             public async Task<string> SendMessageAsync(string message)
@@ -398,6 +480,7 @@ namespace psu_flutter
                     return $"Error: {ex.Message}";
                 }
             }
+
 
             private async Task<string> ReceiveStreamAsync(NetworkStream stream)
             {
@@ -423,6 +506,35 @@ namespace psu_flutter
                 return sb.ToString();
             }
 
+
+            private async Task ListenForMessagesAsync(CancellationToken cancellationToken)
+            {
+                try
+                {
+                    using var stream = _client.GetStream();
+                    var buffer = new byte[4096];
+
+                    while (!cancellationToken.IsCancellationRequested)
+                    {
+                        if (stream.DataAvailable)
+                        {
+                            int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length, cancellationToken);
+                            if (bytesRead > 0)
+                            {
+                                string message = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                                OnMessageReceived?.Invoke(message); // Викликаємо подію для обробки
+                                Console.WriteLine($"Отримано повідомлення: {message}");
+                            }
+                        }
+                        await Task.Delay(100, cancellationToken); // Невелика затримка для економії ресурсів
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Помилка при отриманні повідомлень: {ex.Message}");
+                }
+            }
+
             private bool IsJsonComplete(string json)
             {
                 try
@@ -435,9 +547,17 @@ namespace psu_flutter
                     return false;
                 }
             }
-        } // <-- Закриваюча дужка для SocketClient
 
-      
+            public void Disconnect()
+            {
+                _cancellationTokenSource.Cancel();
+                _client?.Close();
+                Console.WriteLine("Клієнт відключений.");
+            }
+        }
+
+
+
     }
     #endregion
     public class Config

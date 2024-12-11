@@ -4,6 +4,8 @@ using Newtonsoft.Json.Linq;
 using OrderTrack.Models;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
+using System.Linq;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Text;
@@ -45,10 +47,19 @@ namespace psu_flutter
 
         public string IP;
         public string Port;
+        public bool IsNotConnected 
+        {
+            get
+            {
+                return !_socketClient.IsConnected;
+      
+            }
+               
+                }
         public bool MenuVisibility { get; set; }
         public bool IsOrdersEmpty
         {
-            get { return !Orders.Any(); }
+            get { return !Orders.Any() && !IsNotConnected; }
         }
         private  SocketClient _socketClient;
         private System.Timers.Timer _timer;
@@ -193,7 +204,10 @@ namespace psu_flutter
         {
             await MainThread.InvokeOnMainThreadAsync(async () =>
             {
+
                 await SendGetAllOrdersRequest();
+                OnPropertyChanged(nameof(IsNotConnected));
+
             });
         }
 
@@ -207,8 +221,11 @@ namespace psu_flutter
                 };
 
                 string jsonRequest = System.Text.Json.JsonSerializer.Serialize(command);
+                var timer = new Stopwatch();
+                timer.Start();
+              
                 string response = await _socketClient.SendMessageAsync(jsonRequest);
-
+               
                 string pDateFormatString = null;
                 JsonSerializerSettings JsonSettings = new JsonSerializerSettings()
                 {
@@ -240,9 +257,35 @@ namespace psu_flutter
                         Orders.Clear(); // Масове очищення
                         foreach (var order in ordersList)
                         {
-                            Orders.Add(order); // Масове додавання
-                        }
+                            // Збираємо всі товари, які потрібно видалити
+                            var waresToRemove = new List<OrderWares>();
+
+                            foreach (var ware in order.Wares)
+                            {
+                                if (ware.ReceiptLinks.Any())
+                                {
+                                    foreach (var link in ware.ReceiptLinks)
+                                    {
+                                        foreach (var ware2 in order.Wares)
+                                        {
+                                            if (link.CodeWares == ware2.CodeWares)
+                                            {
+                                                waresToRemove.Add(ware2);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Видаляємо товари після завершення ітерації
+                            order.Wares = order.Wares.Except(waresToRemove).ToList();
+
+                            Orders.Add(order);
+
+                        }   
                     });
+                    timer.Stop();
+                    TimeSpan timeTaken = timer.Elapsed;
                     OnPropertyChanged(nameof (IsOrdersEmpty));
                 }
             }
@@ -272,37 +315,50 @@ namespace psu_flutter
         #region UiPart
         private async void Button_Clicked(object sender, EventArgs e)
         {
+            var timer = new Stopwatch();
+            timer.Start();
+           
             try
             {
                 if (sender is Button button && button.CommandParameter is Order currentOrder)
                 {
+                    
+                    if (currentOrder.Status == eStatus.Waiting)
+                    {
+                        currentOrder.Status = eStatus.Preparing;
+                        var order = Orders.FirstOrDefault(e => e.Id == currentOrder.Id);
+                        if (order != null)
+                        {
+                            order.Status = currentOrder.Status;
+                        }
+                    }
+                    else if (currentOrder.Status == eStatus.Preparing)
+                    {
+                        Orders = new ObservableCollection<Order>(Orders.Where(e => e.Id != currentOrder.Id));
+
+                         currentOrder.Status = eStatus.Ready;
+                         
+                    }
+                   
+
+
+                   /* MainThread.BeginInvokeOnMainThread(() =>
+                    {
+                        OnPropertyChanged(nameof(Orders));
+                    });*/
+                    timer.Stop();
+                    TimeSpan timeTaken = timer.Elapsed;
                     string pDateFormatString = null;
-                    JsonSerializerSettings JsonSettings = new JsonSerializerSettings()
+                    JsonSerializerSettings settings = new JsonSerializerSettings()
                     {
                         DateFormatString = "dd.MM.yyyy",
                         FloatParseHandling = FloatParseHandling.Decimal,
                         NullValueHandling = NullValueHandling.Ignore,
                         ReferenceLoopHandling = ReferenceLoopHandling.Ignore
                     };
-                    JsonSerializerSettings settings = pDateFormatString == null
-                            ? JsonSettings
-                            : new JsonSerializerSettings()
-                            {
-                                DateFormatString = pDateFormatString,
-                                FloatParseHandling = FloatParseHandling.Decimal,
-                                NullValueHandling = NullValueHandling.Ignore,
-                                ReferenceLoopHandling = ReferenceLoopHandling.Ignore
-                            };
-                    if (currentOrder.Status == eStatus.Waiting)
-                    {
-                        currentOrder.Status = eStatus.Preparing;
-                    }
-                    else if (currentOrder.Status == eStatus.Preparing)
-                    {
-                        currentOrder.Status = eStatus.Ready;
-                    }
-                    OnPropertyChanged(nameof(Orders));
-                    UpdateModel updateModel = new UpdateModel(currentOrder.Status, currentOrder.Id);
+                
+                          UpdateModel updateModel = new UpdateModel(currentOrder.Status, currentOrder.Id);
+                    
                     var command = new
                     {
                         Command = "ChangeOrderState",
@@ -310,29 +366,17 @@ namespace psu_flutter
                     };
 
 
-                    OnPropertyChanged(nameof(Orders));
+                  //  OnPropertyChanged(nameof(Orders));
                     string jsonRequest = JsonConvert.SerializeObject(command);
                     string response = await _socketClient.SendMessageAsync(jsonRequest);
-                    Status<Order> order = JsonConvert.DeserializeObject<Status<Order>>(response, settings);
+                    Status<Order> returnOrder = JsonConvert.DeserializeObject<Status<Order>>(response, settings);
 
-                    if (order.State == 0)
+                    if (returnOrder.State == 0)
                     {
                         SendGetAllOrdersRequest();
-                        /*  var search = Orders.FirstOrDefault(item => item.Id == currentOrder.Id);
-                          if (search != null)
-                          {
-                              if (currentOrder.Status == eStatus.Ready)
-                              {
-                                  Orders.Remove(search);
-                              }
-                              else
-                              {
-                                  search.Status = currentOrder.Status;
-                              }
-                          }
-                          OnPropertyChanged(nameof(Orders));*/
+                       
                     }
-
+                   
                 }
             }
             catch (Exception ex)
@@ -345,6 +389,23 @@ namespace psu_flutter
         {
             if (sender is Button button && button.CommandParameter is Order currentOrder)
             {
+                var timer = new Stopwatch();
+                timer.Start();
+                if (currentOrder.Status == eStatus.Preparing)
+                {
+                    currentOrder.Status = eStatus.Waiting;
+                    var order = Orders.FirstOrDefault(e => e.Id == currentOrder.Id);
+                    if (order != null)
+                    {
+                        order.Status = currentOrder.Status;
+                    }
+                }
+              /*  MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    OnPropertyChanged(nameof(Orders));
+                });*/
+                timer.Stop();
+                TimeSpan timeTaken = timer.Elapsed;
                 UpdateModel updateModel = new UpdateModel(eStatus.Waiting, currentOrder.Id);
                 var command = new
                 {
@@ -353,27 +414,19 @@ namespace psu_flutter
                 };
                 string pDateFormatString = null;
 
-                JsonSerializerSettings JsonSettings = new JsonSerializerSettings()
+                JsonSerializerSettings settings = new JsonSerializerSettings()
                 {
                     DateFormatString = "dd.MM.yyyy",
                     FloatParseHandling = FloatParseHandling.Decimal,
                     NullValueHandling = NullValueHandling.Ignore,
                     ReferenceLoopHandling = ReferenceLoopHandling.Ignore
                 };
-                JsonSerializerSettings settings = pDateFormatString == null
-                        ? JsonSettings
-                        : new JsonSerializerSettings()
-                        {
-                            DateFormatString = pDateFormatString,
-                            FloatParseHandling = FloatParseHandling.Decimal,
-                            NullValueHandling = NullValueHandling.Ignore,
-                            ReferenceLoopHandling = ReferenceLoopHandling.Ignore
-                        };
+                
                 string jsonRequest = JsonConvert.SerializeObject(command);
                 string response = await _socketClient.SendMessageAsync(jsonRequest);
-                Status<Order> order = JsonConvert.DeserializeObject<Status<Order>>(response, settings);
+                Status<Order> returnoOrder = JsonConvert.DeserializeObject<Status<Order>>(response, settings);
 
-                if (order.State == 0)
+                if (returnoOrder.State == 0)
                 {
                     SendGetAllOrdersRequest();
 
@@ -437,6 +490,7 @@ namespace psu_flutter
         {
             private string _serverAddress;
             private int _port;
+            public bool IsConnected {  get; private set; }
             private TcpClient _client;
             private CancellationTokenSource _cancellationTokenSource;
             public event Action<string> OnMessageReceived; // Подія для обробки отриманих повідомлень
@@ -454,10 +508,12 @@ namespace psu_flutter
                     _client = new TcpClient();
                     await _client.ConnectAsync(_serverAddress, _port);
                     Console.WriteLine("Клієнт підключений до сервера.");
+                    IsConnected = true;
                     _ = ListenForMessagesAsync(_cancellationTokenSource.Token); // Запускаємо слухання
                 }
                 catch (Exception ex)
                 {
+                    IsConnected = false;
                     Console.WriteLine($"Помилка підключення до сервера: {ex.Message}");
                 }
             }
@@ -466,17 +522,23 @@ namespace psu_flutter
             {
                 try
                 {
+                
+
                     using var client = new TcpClient();
                     await client.ConnectAsync(_serverAddress, _port);
-
+                    IsConnected = true;
+                    
                     using var stream = client.GetStream();
                     byte[] data = Encoding.UTF8.GetBytes(message);
                     await stream.WriteAsync(data, 0, data.Length);
 
                     return await ReceiveStreamAsync(stream);
+                  
                 }
                 catch (Exception ex)
                 {
+                    IsConnected = false;
+
                     return $"Error: {ex.Message}";
                 }
             }

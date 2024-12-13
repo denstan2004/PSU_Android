@@ -11,12 +11,41 @@ namespace OrderTrack.Models
         public bool IsButtonVisible 
            {
             get{
-                return this.Status==eStatus.Preparing ? true : false;
+                return this.Status == eStatus.Preparing;
             }
            }
+        public string TextColor
+        {
+            get
+            {
+                return this.Status == eStatus.Waiting ? "#102947" : "#472810";
+            }
+        }
+        public string IdColor
+        {
+            get
+            {
+                return this.Status == eStatus.Waiting ? "#4586a6" : "#a66c45";
+
+            }
+        }
+        public string MainColor
+        {
+            get
+            {
+                return this.Status == eStatus.Waiting ? "#61bbe8" : "#f59d67";
+            }
+        }
+        public string SecondaryColor
+        {
+            get
+            {
+                return this.Status == eStatus.Waiting ? "#082567" : "#db5909";
+            }
+        }
         private int _OrderNumber;
 
-        public event PropertyChangedEventHandler? PropertyChanged;
+        public event PropertyChangedEventHandler PropertyChanged;
 
         public int OrderNumber { get => Id < 100 ? Id : Id % 100; set => _OrderNumber = value; }
 
@@ -31,7 +60,12 @@ namespace OrderTrack.Models
                 {
                     _status = value;
                     OnPropertyChanged();
-                   
+                    OnPropertyChanged(nameof(IsButtonVisible));
+                   OnPropertyChanged(nameof(StatusText));
+                    OnPropertyChanged(nameof(MainColor));
+                    OnPropertyChanged(nameof(SecondaryColor));
+                    OnPropertyChanged(nameof(TextColor));
+                    OnPropertyChanged(nameof(IdColor));
                 }
             }
         }
@@ -42,8 +76,8 @@ namespace OrderTrack.Models
             {
                 return Status switch
                 {
-                    eStatus.Waiting => "Почати готувати",
-                    eStatus.Preparing => "Закінчити готувати",
+                    eStatus.Waiting => "ПОЧАТИ ГОТУВАТИ",
+                    eStatus.Preparing => "ЗАКІНЧИТИ ГОТУВАТИ",
                     eStatus.Ready => "Готово!",
                     _ => "Невідомий статус"
                 };

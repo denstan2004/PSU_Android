@@ -36,7 +36,7 @@ namespace psu_flutter
             Orders = new ObservableCollection<Order>();
             BindingContext = this; // Встановлюємо BindingContext
 
-
+            SendGetAllOrdersRequest();
             _timer = new System.Timers.Timer(45000);
             _timer.AutoReset = true;
             _timer.Elapsed += OnTimerElapsed;
@@ -44,14 +44,36 @@ namespace psu_flutter
         }
 
         #region Fields
-
-        public string IP;
-        public string Port;
+        private string _ip;
+        public string IP {
+            get
+            {
+                return _socketClient._serverAddress;
+            }
+            set
+            {
+                _ip = value;
+            }
+            
+        }
+        private string _port;
+        public string Port   { get 
+            {
+                return _socketClient._port.ToString();
+            }
+            set
+            {
+                _port = value;
+            }
+        }
         public bool IsNotConnected 
         {
             get
             {
+                if (!_socketClient.IsConnected)
+                    Orders.Clear();
                 return !_socketClient.IsConnected;
+
       
             }
                
@@ -207,6 +229,8 @@ namespace psu_flutter
 
                 await SendGetAllOrdersRequest();
                 OnPropertyChanged(nameof(IsNotConnected));
+                OnPropertyChanged(nameof(IsOrdersEmpty));
+
 
             });
         }
@@ -342,10 +366,10 @@ namespace psu_flutter
                    
 
 
-                   /* MainThread.BeginInvokeOnMainThread(() =>
+                    MainThread.BeginInvokeOnMainThread(() =>
                     {
                         OnPropertyChanged(nameof(Orders));
-                    });*/
+                    });
                     timer.Stop();
                     TimeSpan timeTaken = timer.Elapsed;
                     string pDateFormatString = null;
@@ -366,7 +390,7 @@ namespace psu_flutter
                     };
 
 
-                  //  OnPropertyChanged(nameof(Orders));
+                    OnPropertyChanged(nameof(Orders));
                     string jsonRequest = JsonConvert.SerializeObject(command);
                     string response = await _socketClient.SendMessageAsync(jsonRequest);
                     Status<Order> returnOrder = JsonConvert.DeserializeObject<Status<Order>>(response, settings);
@@ -374,9 +398,11 @@ namespace psu_flutter
                     if (returnOrder.State == 0)
                     {
                         SendGetAllOrdersRequest();
-                       
+                        OnPropertyChanged(nameof(Orders));
+
+
                     }
-                   
+
                 }
             }
             catch (Exception ex)
@@ -400,10 +426,10 @@ namespace psu_flutter
                         order.Status = currentOrder.Status;
                     }
                 }
-              /*  MainThread.BeginInvokeOnMainThread(() =>
+                MainThread.BeginInvokeOnMainThread(() =>
                 {
                     OnPropertyChanged(nameof(Orders));
-                });*/
+                });
                 timer.Stop();
                 TimeSpan timeTaken = timer.Elapsed;
                 UpdateModel updateModel = new UpdateModel(eStatus.Waiting, currentOrder.Id);
@@ -436,8 +462,8 @@ namespace psu_flutter
                         search.Status = currentOrder.Status;
                         OnPropertyChanged(nameof(search));
 
-                    }
-                    OnPropertyChanged(nameof(Orders));*/
+                    }*/
+                    OnPropertyChanged(nameof(Orders));
                 }
 
             }
@@ -452,16 +478,18 @@ namespace psu_flutter
         }
         private void Button_Clicked_3(object sender, EventArgs e)
         {
-            UpdateIpAddress(IP,Port);
+            UpdateIpAddress(_ip,_port);
             MenuVisibility = !MenuVisibility;
             OnPropertyChanged(nameof(MenuVisibility));
+            SendGetAllOrdersRequest();
+            OnPropertyChanged(nameof(IsNotConnected));
+
         }
         private void OnEntryCompleted(object sender, EventArgs e)
         {
             if (sender is Entry entry)
             {
                 string enteredText = entry.Text;
-                OnIpChange(enteredText); 
             }
         }
         private void OnEntryCompleted1(object sender, EventArgs e)
@@ -469,7 +497,6 @@ namespace psu_flutter
             if (sender is Entry entry)
             {
                 string enteredText = entry.Text;
-                OnPortChange(enteredText);
             }
         }
 
@@ -488,8 +515,8 @@ namespace psu_flutter
         #region SocketPart
         public class SocketClient
         {
-            private string _serverAddress;
-            private int _port;
+            public string _serverAddress;
+            public int _port;
             public bool IsConnected {  get; private set; }
             private TcpClient _client;
             private CancellationTokenSource _cancellationTokenSource;
@@ -532,7 +559,7 @@ namespace psu_flutter
                     byte[] data = Encoding.UTF8.GetBytes(message);
                     await stream.WriteAsync(data, 0, data.Length);
 
-                    return await ReceiveStreamAsync(stream);
+                        return await ReceiveStreamAsync(stream);
                   
                 }
                 catch (Exception ex)

@@ -3,14 +3,14 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="psu_flutter.MainPage"
               Title="">
-    <Grid RowDefinitions="*,40*">
+    <Grid RowDefinitions="*,20*">
         <Button 
     Grid.Row="0" 
     BackgroundColor="Transparent" 
-    HeightRequest="40"   
-    WidthRequest="90" 
+    
+    WidthRequest="120" 
     HorizontalOptions="End" 
-    VerticalOptions="Center" 
+    HeightRequest="60" 
     Text="options">
             <Button.GestureRecognizers>
                 <TapGestureRecognizer Tapped="Button_Clicked_2" NumberOfTapsRequired="2" />
